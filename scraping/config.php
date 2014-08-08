@@ -27,14 +27,15 @@ define('Scraping\Config\SCHEDULE_SEPARE_ROUTES', '*');
 
 /*****************************************************CONFIGURATION RELATED TO ANTT.GOV.BR***************************************************/
 define('Scraping\Config\ROUTES_SCHEDULE_URL', 'http://www.antt.gov.br/html/objects/linhas/_carrega_horarios.php?linha=');
-define('Scraping\Config\ROUTES_PRICE_URL', 'http://www.antt.gov.br/html/objects/linhas/_carrega_tarifa.php?linha='); // FIX ME
-define('Scraping\Config\MAX_NUMBER_SCHEDULE_ROUTES', 100000); // FIX ME
-define('Scraping\Config\MAX_NUMBER_PRICE_ROUTES', 100000); // FIX ME
+define('Scraping\Config\ROUTES_PRICE_URL', 'http://www.antt.gov.br/html/objects/linhas/_carrega_tarifa.php?linha=');
+define('Scraping\Config\MAX_NUMBER_SCHEDULE_ROUTES', 10000);
+define('Scraping\Config\MAX_NUMBER_PRICE_ROUTES', 10000);
 
 
 /*****************************************************YOUR CONFIGURATION - YOU CAN CHANGE 'DELIBERATELY'***************************************/
 // Parallel Processing
 define('Scraping\Config\NUMBER_OF_PROCESSES', 5);
+define('Scraping\Config\PRICE_STEP_ON_QUERY', 50);
 
 // Database Configuration
 define('Scraping\Config\DATABASE_ADAPTER', 'mysql');
@@ -43,3 +44,4 @@ define('Scraping\Config\DATABASE_USERNAME', 'root');
 define('Scraping\Config\DATABASE_PASSWORD', 'Fropme-2012');
 define('Scraping\Config\DATABASE_NAME', 'onibus');
 define('Scraping\Config\DATABASE_ROUTES_SCHEDULE_TABLE', 'rotas');
+define('Scraping\Config\DATABASE_ROUTES_PRICE_TABLE', 'subrotas');

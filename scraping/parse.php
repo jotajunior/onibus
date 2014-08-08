@@ -36,6 +36,18 @@ function parseFirstRoundSchedule(&$fields_gotten, &$xpath)
     			break;
     	}
     }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    var_dump($fields_gotten);
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 
 function parseSecondRoundSchedule(&$fields_gotten, &$xpath)
@@ -189,6 +201,29 @@ function parseDestinyCityHoursSchedule(&$xpath)
     return parseCityHoursSchedule($xpath, 2);
 }
 
+function getNumberOfScheduleRoutes(&$pdo_object)
+{
+    $sql = "SELECT COUNT(id) AS counter FROM rotas";
+
+    foreach ($pdo_object->query($sql) as $row) {
+        return (int) $row["counter"];
+    }
+}
+
+function getScheduleIds(&$pdo_object, $begin)
+{
+    settype($begin, "int");
+
+    $sql = "SELECT id FROM rotas ORDER BY id ASC LIMIT " . $begin . ", " . \Scraping\Config\NUMBER_OF_PROCESSES;
+    $result = array();
+
+    foreach ($pdo_object->query($sql) as $row) {
+        $result[] = $row["id"];
+    }
+
+    return $result;
+}
+
 function insertToDatabaseSchedule(&$fields_gotten, &$pdo_object)
 {
     if ($fields_gotten == false) {
@@ -206,6 +241,113 @@ function insertToDatabaseSchedule(&$fields_gotten, &$pdo_object)
     $sql .= implode(', ', $values) . ')';
 
     return $pdo_object->exec($sql);
+}
+
+function insertToDatabasePrice(&$fields_gotten, &$pdo_object)
+{
+    if ($fields_gotten == false || $fields_gotten == array()) {
+        return false;
+    }
+
+    $allOk = true;
+
+    foreach ($fields_gotten as $fields) {
+        $sql = 'INSERT INTO ' . \Scraping\Config\DATABASE_ROUTES_PRICE_TABLE . '(';
+
+        $keys = array_keys($fields);
+
+        foreach ($keys as &$key) {
+            $key = "`" . $key . "`";
+        }
+        $sql .= implode(', ', $keys);
+        
+        $sql .= ') VALUES (';
+
+        $values = array_values($fields);
+
+        foreach ($values as &$value) {
+            $value = '"' . $value . '"';
+        }
+        
+        $sql .= implode(', ', $values) . ')';
+
+        $allOk = $allOk && $pdo_object->exec($sql);
+    }
+
+    return $allOk;
+}
+
+function parsePriceFromAndTo($string)
+{
+    $result = array();
+    $string = explode("-", $string);
+
+    foreach ($string as &$part) {
+        $part = explode("(", $part);
+        $part[1] = str_replace(" ", "", $part[1]);
+        $part = implode("(", $part);
+    }
+
+    return $string;
+}
+
+function parsePrice($result, $route_id)
+{
+    $dom = new \DOMDocument();
+    $dom->loadHTML($result);
+    $dom->saveHTML();
+
+    $xpath = new \DOMXPath($dom);
+    $query = '//tbody/tr/td';
+    $entries = $xpath->query($query);
+
+    $scrapped = array();
+
+    foreach ($entries as $entry) {
+        $scrapped[] = $entry->nodeValue;
+    }
+
+    // 0 -> cidade de - cidade para 1
+    // 1 -> pavimentado 2
+    // 2 -> implantado 3
+    // 3 -> natural 4
+    // 4 -> nao tarifado 5
+    // 5 -> preco maximo 6
+
+    $c = count($scrapped);
+    $j = 0;
+    $formatted = array();
+
+    for ($i = 0; $i < $c; $i++) {
+        switch (($i + 1) % 6) {
+            case 1:
+                $formatted[$j] = array();
+                $formatted[$j]["rotas_id"] = $route_id;
+                $fromAndTo = parsePriceFromAndTo($scrapped[$i]);
+                $formatted[$j]["cidade_de"] = $fromAndTo[0];
+                $formatted[$j]["cidade_para"] = $fromAndTo[1];
+                break;
+            case 2:
+                $formatted[$j]["pavimentado"] = str_replace(",", ".", $scrapped[$i]);
+                break;
+            case 3:
+                $formatted[$j]["implantado"] = str_replace(",", ".", $scrapped[$i]);
+                break;
+            case 4:
+                $formatted[$j]["leito_natural"] = str_replace(",", ".", $scrapped[$i]);
+                break;
+            case 5:
+                $formatted[$j]["nao_tarifado"] = str_replace(",", ".", $scrapped[$i]);
+                break;
+            case 0:
+                $formatted[$j]["preco_maximo"] = str_replace(",", ".", $scrapped[$i]);
+                $formatted[$j]["preco_maximo"] = str_replace("R$ ", "", $formatted[$j]["preco_maximo"]);
+                $j++;
+                break;
+        }
+    }
+
+    return $formatted;
 }
 
 function parseSchedule($result, $route_id)
@@ -244,19 +386,20 @@ function parseSchedule($result, $route_id)
 
 function parseAndInsert($result, $type, $route_id, $pdo_object)
 {
+
 	$type = strtolower($type);
 
 	switch ($type) {
 		case \Scraping\Config\SCHEDULE_FLAG:
 			$fields_gotten = parseSchedule($result, $route_id);
+            return (bool) insertToDatabaseSchedule($fields_gotten, $pdo_object);
 			break;
 		case \Scraping\Config\PRICE_FLAG:
 			$fields_gotten = parsePrice($result, $route_id);
+            return (bool) insertToDatabasePrice($fields_gotten, $pdo_object);
 			break;
 		default:
 			return false;
 			break;
 	}
-
-    return (bool) insertToDatabaseSchedule($fields_gotten, $pdo_object);
 }
